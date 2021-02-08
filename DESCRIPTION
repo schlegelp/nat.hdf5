@@ -15,11 +15,11 @@ Description: This package lets you read and write neurons from/to HDF5 files.
     https://github.com/schlegelp/navis/blob/master/docs/source/hdf5_format.md
 Depends:
     R (>= 3.1.1),
-    nat (>=1.10)  
-    hdf5r (>=1.3.3)
 Imports:
-    nat
-    hdf5r
+    nat (>= 1.10.0),  
+    hdf5r (>= 1.3.3),
+    rgl,
+    progress
 Suggests:
     testthat,
     knitr,

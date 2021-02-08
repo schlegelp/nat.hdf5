@@ -33,7 +33,7 @@ inspect.hdf5 <- function(f,
                          inspect.neurons=F,
                          inspect.annotations=F, ...) {
   # Open the file
-  file.h5 <- H5File$new(f, mode = "r")
+  file.h5 <- hdf5r::H5File$new(f, mode = "r")
 
   # Check if this is a neuron file
   if (!file.h5$attr_exists('format_spec')){
@@ -41,8 +41,8 @@ inspect.hdf5 <- function(f,
   }
 
   # Root info about format
-  info = list(format_spec = h5attr(file.h5, 'format_spec'),
-              format_url = h5attr(file.h5, 'format_url'))
+  info = list(format_spec = hdf5r::h5attr(file.h5, 'format_spec'),
+              format_url = hdf5r::h5attr(file.h5, 'format_url'))
 
   if (inspect.neurons){
     # Each group represents a neuron
@@ -74,5 +74,6 @@ inspect.hdf5 <- function(f,
     # If no detailled inspections, just track the group names (which are IDs)
     info <- append(info, list(neurons=names(file.h5)))
   }
+  file.h5$close_all()
   info
 }
