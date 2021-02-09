@@ -5,10 +5,10 @@ A library to reading/writing `nat` neuron data from/to Hdf5 files. The schema
 
 # Done
 - [x] function to inspect Hdf5 file: `inspect.hdf5`
-- [x] function to read neurons from Hdf5 file
+- [x] function to read neurons from Hdf5 file: `read.neurons.hdf5`
+- [x] parallel reading
 
 # TODOs
-- [ ] parallel reads
 - [ ] function to write neurons from Hdf5 file
 
 # Install

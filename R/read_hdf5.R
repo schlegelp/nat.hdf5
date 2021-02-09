@@ -19,11 +19,12 @@
 #' @param subset A list If provided, will read only a subset of neurons from the
 #'   file. IDs that don't exist are silently ignored. Also note that due to Hdf5
 #'   restrictions numeric IDs will be automatically converted to strings.
+#'   Use ``inspect.hdf5`` to get an idea of the contents of a given file.
 #' @param annotations Whether to load annotations associated with the neuron(s):
 #'   - ``TRUE`` reads all available annotations
 #'   - ``FALSE`` ignores any annotations
-#'   - e.g. ``"connenctors"`` reads only "connectors"
-#'     Non-existing annotations are silently ignored!
+#'   - e.g. ``"connectors"`` reads only "connectors"
+#'   Non-existing annotations are silently ignored!
 #' @param strict If TRUE, will read only the attributes/columns which are
 #'   absolutely required to construct the respective neuron representation. This
 #'   is useful if you either want to keep memory usage low or if any additional
@@ -34,7 +35,7 @@
 #'   ``format_spec`` attribute in the Hdf5 file. You can also directly provide a
 #'   function.
 #' @param .parallel Defaults to ``auto`` which means only use parallel
-#'  processing if more than 200 neurons are imported. Spawning and joining
+#'  processing if more than 10 neurons are imported. Spawning and joining
 #'  processes causes overhead and is considerably slower for imports of small
 #'  numbers of neurons. Integer will be interpreted as the number of cores
 #'  (otherwise defaults to ``parallel::detectCores()/2``).
@@ -43,22 +44,15 @@
 #'
 #' @examples
 #' \dontrun{
-#' # note that we override the default NeuronName field
-#' n=read.neuron(system.file("tests/testthat/testdata","neuron","EBT7R.CNG.swc",package='nat'),
-#'   NeuronName="EBT7R")
+#' n=read.neurons.hdf5('/path/to/hdf5_file.h5')
 #' }
-read.neuron.hdf5 <- function(f,
+read.neurons.hdf5 <- function(f,
                              read='mesh->skeleton->dotprops',
                              subset=NULL,
                              annotations=TRUE,
                              strict=FALSE,
                              reader='auto',
-                             parallel='auto', ...) {
-
-  # TODOs:
-  # - parallel reading
-  # - annotations
-
+                             .parallel='auto', ...) {
   # First make sure that the `read` string is correct
   # Drop accidental whitespaces
   read = gsub(" ", "", read)
@@ -80,24 +74,163 @@ read.neuron.hdf5 <- function(f,
   # The reader to be used depends on the format specifier in the file
   if (reader=='auto') {
     reader = switch(info$format_spec,
-                    navis_hdf5_v1=read.neuron.hdf5.v1)
+                    navis_hdf5_v1=read.neurons.hdf5.v1)
   } else if (!is.function(reader)) {
     stop('`reader` must be "auto" or a function')
   }
 
-  reader(f, read=read, subset=subset, annotations=annotations, strict=strict)
+  reader(f,
+         read=read,
+         subset=subset,
+         annotations=annotations,
+         strict=strict,
+         .parallel=.parallel)
 }
 
 
 # hidden
+# Reads version 1 of the schema
 #' @rdname read.neuron.hdf5
-read.neuron.hdf5.v1 <- function(f,
-                                read='mesh->skeleton->dotprops',
-                                subset=NULL,
-                                annotations=TRUE,
-                                strict=FALSE,
-                                reader='auto',
-                                parallel='auto', ...) {
+read.neurons.hdf5.v1 <- function(f,
+                                 read='mesh->skeleton->dotprops',
+                                 subset=NULL,
+                                 annotations=TRUE,
+                                 strict=FALSE,
+                                 reader='auto',
+                                 .parallel='auto', ...) {
+
+  # Get info for file
+  info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
+
+  # If no subset specified, load all neurons
+  if (is.null(subset)) {
+    subset = info$neurons
+  } else {
+    # Force to str
+    subset = as.character(subset)
+    # Intersect with the neurons that are actually available
+    subset = intersect(subset, info$neurons)
+    # Complain if none left
+    if (length(subset) == 0) {
+      stop("None of the requested neurons appear to be in the Hdf5 file")
+    }
+  }
+
+  # Only use parallel processing if we have more than 10 neurons
+  if (.parallel == 'auto'){
+    if (length(subset) <= 10){
+      .parallel = F
+    } else {
+      .parallel = T
+    }
+  }
+
+  # If .parallel is not a number
+  if (.parallel == TRUE){
+    # Use half of the available cores if not specified
+    ncores = as.integer(parallel::detectCores() / 2)
+  } else if (.parallel == FALSE){
+    # No parallel processing = 1 core
+    ncores = 1L
+  } else {
+    # Make sure .parallel is a number
+    ncores = as.integer(.parallel)
+  }
+
+  # Load neurons
+  nl = pbmcapply::pbmclapply(subset,
+                             FUN=read.neuron.hdf5.v1,
+                             f=f,
+                             annotations=annotations,
+                             read=read,
+                             strict=strict,
+                             mc.cores=ncores,
+                             mc.silent=F
+                             )
+
+  # Return the neuronlist
+  # Note that `nl` is a list of lists of neurons (e.g. a mesh AND a skeleton
+  # for a given neuron) -> we need to unlist
+  nat::as.neuronlist(unlist(nl, recursive=F))
+}
+
+
+# hidden
+# Read a single neuron from given file
+# typically called from read.neurons.hdf5.v1 using parallel processes
+read.neuron.hdf5.v1 <- function(n, f, annotations, read, strict, ...){
+  # Open the file
+  file.h5 <- hdf5r::H5File$new(f, mode = "r")
+
+  # Open this neuron's group
+  grp = hdf5r::openGroup(file.h5, n)
+
+  # Get neuron-level attributes
+  nattrs = hdf5r::h5attributes(grp)
+  # Drop un-expected attributes if strict
+  if (strict) {
+    nattrs = nattrs[names(nattrs) %in% c("neuron_name", 'units_nm')]
+  }
+
+  # Load annotations (if present and requested)
+  # if not requests or not present, `this_an` will be an empty list
+  this_an = read.neuron.hdf5.v1.annotations(grp,
+                                            annotations=annotations)
+
+  # Go over the requested representations
+  # (e.g "dotprops,skeleton" = dotprops AND skeletons)
+  nl = list()
+  for (r in strsplit(read, ',')[[1]]) {
+    # Cycle through preferences
+    # (e.g. "mesh->dotprops" = mesh or if not available the dotprops)
+    for (pr in strsplit(r, '->')[[1]]) {
+      if (pr %in% names(grp)) {
+        # Get the correct function to read this representation
+        f = switch(pr,
+                   skeleton=read.neuron.hdf5.v1.skeleton,
+                   mesh=read.neuron.hdf5.v1.mesh,
+                   dotprops=read.neuron.hdf5.v1.dotprops)
+
+        # Read the neuron
+        neuron = f(grp, strict=strict)
+
+        # Add neuron-level attributes unless they have been set at
+        # representation (i.e. skeleton, mesh or dotprop) level
+        toset = nattrs[!names(nattrs) %in% names(neuron)]
+        neuron[names(toset)] = toset
+
+        # ID always comes from the group
+        neuron$id = n
+
+        # Add annotations
+        if (length(this_an)){
+          neuron[names(this_an)] = this_an
+        }
+        # Attach it to list of neurons
+        nl = c(nl, list(neuron))
+
+        # We are in the priority loop - if we found what we wanted break out
+        break
+      }
+    }
+  }
+  # Close file again
+  file.h5$close_all()
+  # Return nl
+  nl
+}
+
+
+# hidden
+# This is the old version that loads neurons sequentially -> keep as reference
+#' @rdname read.neuron.hdf5
+read.neurons.hdf5.v1.seq <- function(f,
+                                     read='mesh->skeleton->dotprops',
+                                     subset=NULL,
+                                     annotations=TRUE,
+                                     strict=FALSE,
+                                     reader='auto',
+                                    .parallel='auto', ...) {
 
   # Get info for file
   info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
@@ -126,13 +259,9 @@ read.neuron.hdf5.v1 <- function(f,
     # Open this neuron's group
     grp = hdf5r::openGroup(file.h5, n)
 
-    # The neuron's ID is the name of its base group
-    # Note that we have to drop the leading "/"
-    nid = substr(grp$get_obj_name(), 2, nchar(grp$get_obj_name()))
-
     # Get neuron-level attributes
     nattrs = hdf5r::h5attributes(grp)
-    # Drop un-expected attributes if strict
+    # Drop unexpected attributes if strict
     if (strict) {
       nattrs = nattrs[names(nattrs) %in% c("neuron_name", 'units_nm')]
     }
@@ -161,7 +290,7 @@ read.neuron.hdf5.v1 <- function(f,
           toset = nattrs[!names(nattrs) %in% names(neuron)]
           neuron[names(toset)] = toset
           # ID always comes from the group
-          neuron$id = nid
+          neuron$id = n
           # Add annotations
           if (length(this_an)){
             neuron[names(this_an)] = this_an
@@ -184,6 +313,7 @@ read.neuron.hdf5.v1 <- function(f,
 
 
 # hidden
+# Read skeleton from given Hdf5 group into a nat neuron
 read.neuron.hdf5.v1.skeleton <- function(grp, strict=F){
   # Get skeleton group from the base neuron grp
   skgrp = hdf5r::openGroup(grp, "skeleton")
@@ -259,6 +389,7 @@ read.neuron.hdf5.v1.skeleton <- function(grp, strict=F){
 
 
 # hidden
+# Read mesh from given Hdf5 group into a nat mesh3d
 read.neuron.hdf5.v1.mesh <- function(grp, strict=F){
   # Get mesh group from the base neuron grp
   megrp = hdf5r::openGroup(grp, "mesh")
@@ -318,6 +449,7 @@ read.neuron.hdf5.v1.mesh <- function(grp, strict=F){
 
 
 # hidden
+# Read dotprops from given Hdf5 group into a nat dotprops
 read.neuron.hdf5.v1.dotprops <- function(grp, strict=F){
   # Get dotprops group from the base neuron grp
   dpgrp = hdf5r::openGroup(grp, "dotprops")
@@ -372,9 +504,16 @@ read.neuron.hdf5.v1.dotprops <- function(grp, strict=F){
 
 
 # hidden
+# Read annotations from given Hdf5 group into a single dataframe
 read.neuron.hdf5.v1.annotations <- function(grp, annotations=T){
   # If no annotations requested or no annotations present return empty list
-  if (is.null(annotations) | annotations == F | !"annotations" %in% names(grp)) {
+  if (is.null(annotations)){
+    return(list())
+  }
+  if (annotations == F){
+    return(list())
+  }
+  if (!"annotations" %in% names(grp)){
     return(list())
   }
 
@@ -397,6 +536,8 @@ read.neuron.hdf5.v1.annotations <- function(grp, annotations=T){
 
 
 # hidden
+# Helper function to parse all data sets in a given Hdf5 group into a single
+# dataframe. This expects each dataset to be a 1d vector
 group.to.dataframe <- function(grp,
                                ss=NULL,
                                excl=NULL,
