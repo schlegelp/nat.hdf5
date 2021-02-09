@@ -2,7 +2,8 @@ Package: nat.hdf5
 Type: Package
 Title: Read Neuron Data from HDF5 files
 Version: 0.1.0
-Author@R: c(
+Authors@R:
+    c(
     person("Philipp", "Schlegel", email = "uni.matrix742@gmail.com", 
       role = c("aut", "cre"), comment = c(ORCID = "0000-0002-5633-1314"))
     )
