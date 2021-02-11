@@ -119,6 +119,7 @@ write.neurons.hdf5.v1 <- function(x,
   hdf5r::h5attr(file.h5, "format_url") <- "https://github.com/schlegelp/navis"
 
   # Go over each neuron and save it
+  pb <- progress::progress_bar$new(total = length(x))
   for (n in x){
     if (!is.null(n$skid)){
       id = n$skid
@@ -139,6 +140,7 @@ write.neurons.hdf5.v1 <- function(x,
     # Write basic info about this neuron
     # NOTE: I'm not sure whether neuron names can show up in any other flavors
     if (!is.null(n$NeuronName)){
+      # Strangely storing this one attribute takes ~15% of the total time
       hdf5r::h5attr(grp, "neuron_name") <- n$NeuronName
     }
 
@@ -154,7 +156,9 @@ write.neurons.hdf5.v1 <- function(x,
     } else {
       stop("Don't know how to write object of class ", class(n))
     }
+    pb$tick()
   }
+  file.h5$close_all()
 }
 
 
