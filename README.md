@@ -3,14 +3,31 @@ A library to reading/writing `nat` neuron data from/to Hdf5 files. The schema
 (version 1) is currently being finalized and is documented
 [here](https://github.com/schlegelp/navis/blob/master/docs/source/hdf5_format.md).
 
+Ups:
+- language- and library-agnostic, i.e. you can use that data from outside 
+  R and the natverse 
+- you can add/edit/remove individual neurons without having to rewrite the whole
+  file
+
+Downs:
+- slower to read/write than R's `save`/`load` because we have to parse data and
+  generate the neuron object(s) from scratch
+- deleting data from an Hdf5 file does not reduce file size but frees space for 
+  data added in the future which leads to pot. larger files
+
 # Done
 - [x] function to inspect Hdf5 file: `inspect.hdf5`
 - [x] function to read neurons from Hdf5 file: `read.neurons.hdf5`
 - [x] parallel reading
+- [x] function to write neurons from Hdf5 file
 
 # TODOs
-- [ ] function to write neurons from Hdf5 file
-- [ ] write neurons as serialized byte stream for faster reading
+- [ ] read arbitrary attributes + `strict` parameter for `read.neurons.hdf5`
+- [ ] function to remove select neurons from Hdf5 file
+
+# Thoughts on future directions
+- optionally write neurons as serialized byte streams for faster reading
+- rewrite to work with either Hdf5 or a simple zip file
 
 # Install
 
