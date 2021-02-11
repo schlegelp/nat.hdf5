@@ -10,6 +10,7 @@ A library to reading/writing `nat` neuron data from/to Hdf5 files. The schema
 
 # TODOs
 - [ ] function to write neurons from Hdf5 file
+- [ ] write neurons as serialized byte stream for faster reading
 
 # Install
 
@@ -18,6 +19,19 @@ A library to reading/writing `nat` neuron data from/to Hdf5 files. The schema
 > if (!require("remotes")) install.packages("remotes")
 > remotes::install_github("schlegelp/nat.hdf5")
 ```
+
+## Requirements
+
+For OS X and Linux the HDF5 library needs to be installed via one of the (shell) commands specified below:
+
+| System                                    | Command
+|:------------------------------------------|:---------------------------------|
+|**OS X (using Homebrew)**                  | `brew install hdf5`
+|**Debian-based systems (including Ubuntu)**| `sudo apt-get install libhdf5-dev` 
+|**Systems supporting yum and RPMs**        | `sudo yum install hdf5-devel`
+
+HDF5 1.8.14 has been pre-compiled for Windows and is available at
+https://github.com/mannau/h5-libwin - thus no manual installation is required.
 
 # Use
 ```R
@@ -35,7 +49,7 @@ $format_url
 $neurons
 [1] "1734350788" "1734350908" "722817260"  "754534424"  "754538881" 
 
-> # Read all representations
+> # Read all (available) representations
 > sk = read.neurons.hdf5('neurons.h5', read='skeleton,mesh,dotprops')
 
 > # Read all skeletons
