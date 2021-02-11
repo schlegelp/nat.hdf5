@@ -84,13 +84,14 @@ read.neurons.hdf5 <- function(f,
          subset=subset,
          annotations=annotations,
          strict=strict,
-         .parallel=.parallel)
+         .parallel=.parallel,
+         ...)
 }
 
 
 # hidden
 # Reads version 1 of the schema
-#' @rdname read.neuron.hdf5
+#' @rdname read.neurons.hdf5
 read.neurons.hdf5.v1 <- function(f,
                                  read='mesh->skeleton->dotprops',
                                  subset=NULL,
@@ -138,6 +139,8 @@ read.neurons.hdf5.v1 <- function(f,
   }
 
   # Load neurons
+  # pbmclapply wraps mclapply with a progress bar
+  # mclapply in turn wraps lapply for multi-processing
   nl = pbmcapply::pbmclapply(subset,
                              FUN=read.neuron.hdf5.v1,
                              f=f,
@@ -145,7 +148,8 @@ read.neurons.hdf5.v1 <- function(f,
                              read=read,
                              strict=strict,
                              mc.cores=ncores,
-                             mc.silent=F
+                             mc.silent=F,
+                             mc.preschedule=T
                              )
 
   # Return the neuronlist
@@ -162,7 +166,7 @@ read.neuron.hdf5.v1 <- function(n, f, annotations, read, strict, ...){
   # Open the file
   file.h5 <- hdf5r::H5File$new(f, mode = "r")
 
-  # Open this neuron's group
+  # Open this neuron's group (hdf5 groups are like folders)
   grp = hdf5r::openGroup(file.h5, n)
 
   # Get neuron-level attributes
@@ -173,7 +177,8 @@ read.neuron.hdf5.v1 <- function(n, f, annotations, read, strict, ...){
   }
 
   # Load annotations (if present and requested)
-  # if not requests or not present, `this_an` will be an empty list
+  # if not requested (i.e. `annotations=F`)
+  # or no annotations present, `this_an` will be an empty list
   this_an = read.neuron.hdf5.v1.annotations(grp,
                                             annotations=annotations)
 
@@ -195,7 +200,7 @@ read.neuron.hdf5.v1 <- function(n, f, annotations, read, strict, ...){
         neuron = f(grp, strict=strict)
 
         # Add neuron-level attributes unless they have been set at
-        # representation (i.e. skeleton, mesh or dotprop) level
+        # representation (i.e. skeleton, mesh or dotprops) level
         toset = nattrs[!names(nattrs) %in% names(neuron)]
         neuron[names(toset)] = toset
 
@@ -222,7 +227,8 @@ read.neuron.hdf5.v1 <- function(n, f, annotations, read, strict, ...){
 
 
 # hidden
-# This is the old version that loads neurons sequentially -> keep as reference
+# This is the old version that loads neurons sequentially
+# -> keep as reference for now
 #' @rdname read.neuron.hdf5
 read.neurons.hdf5.v1.seq <- function(f,
                                      read='mesh->skeleton->dotprops',
@@ -315,7 +321,7 @@ read.neurons.hdf5.v1.seq <- function(f,
 # hidden
 # Read skeleton from given Hdf5 group into a nat neuron
 read.neuron.hdf5.v1.skeleton <- function(grp, strict=F){
-  # Get skeleton group from the base neuron grp
+  # Get skeleton group from the base neuron group
   skgrp = hdf5r::openGroup(grp, "skeleton")
 
   # Get skeleton-level attributes
@@ -376,6 +382,12 @@ read.neuron.hdf5.v1.skeleton <- function(grp, strict=F){
   n=nat::as.neuron(swc,
                    origin=sp,
                    InputFileName=grp$get_filename())
+
+  # Note to self: not sure this is the correct way to annotate the soma
+  # but nat:::has_soma requires this tag
+  if (!is.null(sp)){
+    n$tags$soma = sp
+  }
 
   # Add other attributes
   n[names(skattrs)] = skattrs
@@ -476,8 +488,11 @@ read.neuron.hdf5.v1.dotprops <- function(grp, strict=F){
                vect=t(dpgrp[['vect']][,]))
   rlist$labels = NULL
 
-  # Add other attributes -> this includes `k`
+  # Add other attributes -> this includes `k` and pot. soma position
   rlist[names(dpattrs)] = dpattrs
+
+  # Note that `k` needs to be an attribute and not directly attached
+  attr(rlist, 'k') <- dpattrs$k
 
   # Add other data sets unless strict=T
   if (!strict) {
@@ -499,7 +514,7 @@ read.neuron.hdf5.v1.dotprops <- function(grp, strict=F){
   }
 
   # Turn into dotprops
-  as.dotprops(rlist)
+  nat::as.dotprops(rlist)
 }
 
 
@@ -513,7 +528,7 @@ read.neuron.hdf5.v1.annotations <- function(grp, annotations=T){
   if (annotations == F){
     return(list())
   }
-  if (!"annotations" %in% names(grp)){
+  if (!grp$exists("annotations")){
     return(list())
   }
 

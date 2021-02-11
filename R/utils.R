@@ -24,10 +24,10 @@
 #' info$neurons
 #' # Parse full info (slow!)
 #' info.full=inspect.hdf5('path/to/file.h5', parse.neurons=T, parse.annotations=T)
-#' # Does the neuron with given ID have a skeleton?
-#' info$`42541231235`$skeleton
-#' # What annotations are associated with that neuron
-#' info$`42541231235`$annotations
+#' # Which neurons have skeletons
+#' info$skeletons
+#' # What annotations are associated with which neurons
+#' info$annotations$connectors
 #' }
 inspect.hdf5 <- function(f,
                          inspect.neurons=F,
@@ -42,38 +42,52 @@ inspect.hdf5 <- function(f,
 
   # Root info about format
   info = list(format_spec = hdf5r::h5attr(file.h5, 'format_spec'),
-              format_url = hdf5r::h5attr(file.h5, 'format_url'))
+              format_url = hdf5r::h5attr(file.h5, 'format_url'),
+              neurons = names(file.h5))
 
   if (inspect.neurons){
     # Each group represents a neuron
     grps = names(file.h5)
-    neurons = list()
+    info$skeletons = list()
+    info$dotprops = list()
+    info$meshes = list()
+
+    if (inspect.annotations){
+      info$annotations = list()
+    }
+
     # Open each group to check it's content
     for (n in grps){
       # Get the group
       g = file.h5[[n]]
       # Check for content
       contents = names(g)
-      this <- list(skeleton="skeleton" %in% contents,
-                   mesh="mesh" %in% contents,
-                   dotprops="dotprops" %in% contents)
+
+      if ("skeleton" %in% contents){
+        info$skeletons = c(info$skeletons, n)
+      }
+      if ("meshes" %in% contents){
+        info$meshes = c(info$meshes, n)
+      }
+      if ("dotprops" %in% contents){
+        info$dotprops = c(info$dotprops, n)
+      }
+
       if (inspect.annotations){
-        if (!"annotations" %in% contents){
-          this <- c(this, annnotations=NULL)
-        } else {
-          this <- c(this, annnotations=names(g[['annotations']]))
+        if ("annotations" %in% contents){
+          this_an = names(g[['annotations']])
+          for (an in this_an){
+            info$annotations[[an]] = c(info$annotations[[an]], n)
+          }
         }
       }
-      # Keep a list of lists
-      neurons <- append(neurons, list(this))
     }
-    # Use the group names (which are the IDs) as names
-    names(neurons) <- grps
-    info <- append(info, list(neurons=neurons))
-  } else {
-    # If no detailled inspections, just track the group names (which are IDs)
-    info <- append(info, list(neurons=names(file.h5)))
+    # For reasons I don't yet understand, we have to unlist at the end
+    info$skeletons = unlist(info$skeletons)
+    info$dotprops = unlist(info$dotprops)
+    info$meshes = unlist(info$meshes)
   }
+
   file.h5$close_all()
   info
 }
