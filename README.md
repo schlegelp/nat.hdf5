@@ -1,3 +1,7 @@
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/schlegelp/nat.hdf5/workflows/R-CMD-check/badge.svg)](https://github.com/schlegelp/nat.hdf5/actions)
+<!-- badges: end -->
+
 # nat.hdf5
 A library to reading/writing `nat` neuron data from/to Hdf5 files. The schema
 (version 1) is currently being finalized and is documented
