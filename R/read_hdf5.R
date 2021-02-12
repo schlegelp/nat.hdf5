@@ -141,8 +141,35 @@ read.neurons.hdf5.v1 <- function(f,
   # Load neurons
   # pbmclapply wraps mclapply with a progress bar
   # mclapply in turn wraps lapply for multi-processing
-  nl = pbmcapply::pbmclapply(subset,
-                             FUN=read.neuron.hdf5.v1,
+  #nl = pbmcapply::pbmclapply(subset,
+  #                           FUN=read.neuron.hdf5.v1,
+  #                           f=f,
+  #                           annotations=annotations,
+  #                           read=read,
+  #                           strict=strict,
+  #                           mc.cores=ncores,
+  #                           mc.silent=F,
+  #                           mc.preschedule=T
+  #                           )
+  # pbmclapply wraps mclapply with a progress bar
+  # mclapply in turn wraps lapply for multi-processing
+  #
+
+  # Max sets the max number of neurons that are processed per chunk
+  mx = ceiling(length(subset)/ncores)
+  # For small requests make sure that we don't have ridiculously small chunks
+  mx = max(mx, 50)
+  # For really big requests make sure that we can update the progress bar in
+  # reasonable intervals
+  mx = min(mx, 300)
+
+  # Do the actual splitting
+  y <- seq_along(subset)
+  chunks <- split(subset, ceiling(y/mx))
+
+  # Read in parallel chunks
+  nl = pbmcapply::pbmclapply(chunks,
+                             FUN=read.neurons.hdf5.v1.seq,
                              f=f,
                              annotations=annotations,
                              read=read,
