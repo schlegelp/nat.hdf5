@@ -23,7 +23,7 @@ jobs:
       - name: Install Hdf5 format
         run: brew install hdf5
       - name: Install xquartz
-        run: brew cask install xquartz
+        run: brew install --cask xquartz
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "rcmdcheck"))
