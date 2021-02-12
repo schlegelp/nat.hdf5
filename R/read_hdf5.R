@@ -34,6 +34,12 @@
 #'   ("auto") will try to pick the correct parser for you depending on the
 #'   ``format_spec`` attribute in the Hdf5 file. You can also directly provide a
 #'   function.
+#' @param on.error Determines what to do if a neuron can not be parsed. By
+#'   default we "stop" immediately but you can also choose to just "warn" or
+#'   or "ignore" errors entirely. In the latter two cases, neurons that could
+#'   not be read will simply be omitted.
+#' @param ret.errors If `TRUE`, will return a list containing the `neurons` and
+#'  any `errors` encountered while reading the data.
 #' @param .parallel Defaults to ``auto`` which means only use parallel
 #'  processing if more than 10 neurons are imported. Spawning and joining
 #'  processes causes overhead and is considerably slower for imports of small
@@ -47,12 +53,16 @@
 #' n=read.neurons.hdf5('/path/to/hdf5_file.h5')
 #' }
 read.neurons.hdf5 <- function(f,
-                             read='mesh->skeleton->dotprops',
-                             subset=NULL,
-                             annotations=TRUE,
-                             strict=FALSE,
-                             reader='auto',
-                             .parallel='auto', ...) {
+                              read='mesh->skeleton->dotprops',
+                              subset=NULL,
+                              annotations=TRUE,
+                              strict=FALSE,
+                              reader='auto',
+                              on.error=c('stop', 'warn', 'ignore'),
+                              ret.errors=FALSE,
+                              .parallel='auto', ...) {
+  on.error = match.arg(on.error)
+
   # First make sure that the `read` string is correct
   # Drop accidental whitespaces
   read = gsub(" ", "", read)
@@ -84,6 +94,8 @@ read.neurons.hdf5 <- function(f,
          subset=subset,
          annotations=annotations,
          strict=strict,
+         on.error=on.error,
+         ret.errors=ret.errors,
          .parallel=.parallel,
          ...)
 }
@@ -98,7 +110,10 @@ read.neurons.hdf5.v1 <- function(f,
                                  annotations=TRUE,
                                  strict=FALSE,
                                  reader='auto',
+                                 on.error=c('stop', 'warn', 'ignore'),
+                                 ret.errors=FALSE,
                                  .parallel='auto', ...) {
+  on.error = match.arg(on.error)
 
   # Get info for file
   info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
@@ -168,21 +183,46 @@ read.neurons.hdf5.v1 <- function(f,
   chunks <- split(subset, ceiling(y/mx))
 
   # Read in parallel chunks
-  nl = pbmcapply::pbmclapply(chunks,
-                             FUN=read.neurons.hdf5.v1.seq,
-                             f=f,
-                             annotations=annotations,
-                             read=read,
-                             strict=strict,
-                             mc.cores=ncores,
-                             mc.silent=F,
-                             mc.preschedule=T
-                             )
+  # `res` that contain for each chunk a list of `neurons` and `errors`
+  res = pbmcapply::pbmclapply(chunks,
+                              FUN=read.neurons.hdf5.v1.seq,
+                              f=f,
+                              annotations=annotations,
+                              read=read,
+                              strict=strict,
+                              on.error=on.error,
+                              mc.cores=ncores,
+                              mc.silent=F,
+                              mc.preschedule=T
+                              )
+
+  # Parse errors and neurons from the list
+  nl = NULL
+  errors = NULL
+  for (i in 1:length(res)){
+    nl = c(nl, res[[i]]$neurons)
+    errors = c(errors, res[[i]]$errors)
+  }
+
+  if (on.error == 'warn'){
+    if (length(errors) != 0){
+      warning(length(errors),
+              " of ",
+              length(nl) + length(errors),
+              " representation could not be parsed.")
+    }
+  }
 
   # Return the neuronlist
   # Note that `nl` is a list of lists of neurons (e.g. a mesh AND a skeleton
   # for a given neuron) -> we need to unlist
-  nat::as.neuronlist(unlist(nl, recursive=F))
+  nl = nat::as.neuronlist(nl, recursive=F)
+
+  if (!ret.errors){
+    return(nl)
+  } else {
+    return(list(neurons=nl, errors=errors))
+  }
 }
 
 
@@ -254,8 +294,8 @@ read.neuron.hdf5.v1 <- function(n, f, annotations, read, strict, ...){
 
 
 # hidden
-# This is the old version that loads neurons sequentially
-# -> keep as reference for now
+# This is the version that loads neurons sequentially
+# Typically called by mclapply to read chunks of neurons in parallel processes
 #' @rdname read.neuron.hdf5
 read.neurons.hdf5.v1.seq <- function(f,
                                      read='mesh->skeleton->dotprops',
@@ -263,6 +303,7 @@ read.neurons.hdf5.v1.seq <- function(f,
                                      annotations=TRUE,
                                      strict=FALSE,
                                      reader='auto',
+                                     on.error=c('raise', 'warn', 'ignore'),
                                     .parallel='auto', ...) {
 
   # Get info for file
@@ -287,6 +328,7 @@ read.neurons.hdf5.v1.seq <- function(f,
 
   # Load neurons
   nl = list()
+  errs = list()
   pb <- progress::progress_bar$new(total = length(subset))
   for (n in subset) {
     # Open this neuron's group
@@ -316,21 +358,36 @@ read.neurons.hdf5.v1.seq <- function(f,
                      skeleton=read.neuron.hdf5.v1.skeleton,
                      mesh=read.neuron.hdf5.v1.mesh,
                      dotprops=read.neuron.hdf5.v1.dotprops)
+
           # Read the neuron
-          neuron = f(grp, strict=strict)
-          # Add neuron-level attributes unless they have been set at
-          # representation (i.e. skeleton, mesh or dotprop) level
-          toset = nattrs[!names(nattrs) %in% names(neuron)]
-          neuron[names(toset)] = toset
-          # ID always comes from the group
-          neuron$id = n
-          # Add annotations
-          if (length(this_an)){
-            neuron[names(this_an)] = this_an
+          if (on.error != 'stop'){
+            # Try parsing this neuron and keep track of errors if fails
+            neuron = NULL
+            e = tryCatch({neuron = f(grp, strict=strict)
+                          NULL},
+                         error = function(cond) conditionMessage(cond))
+            if (!is.null(e)){
+              errs[[n]][[pr]] = e
+            }
+          } else {
+            neuron = f(grp, strict=strict)
           }
-          # Attach it to list of neurons
-          nl = c(nl, list(neuron))
-          # We are in the priority loop - if we found what we wanted break out
+
+          if (!is.null(neuron)){
+            # Add neuron-level attributes unless they have been set at
+            # representation (i.e. skeleton, mesh or dotprop) level
+            toset = nattrs[!names(nattrs) %in% names(neuron)]
+            neuron[names(toset)] = toset
+            # ID always comes from the group
+            neuron$id = n
+            # Add annotations
+            if (length(this_an)){
+              neuron[names(this_an)] = this_an
+            }
+            # Attach it to list of neurons
+            nl = c(nl, list(neuron))
+            # We are in the priority loop - if we found what we wanted break out
+          }
           break
         }
       }
@@ -340,8 +397,9 @@ read.neurons.hdf5.v1.seq <- function(f,
   # Close file
   file.h5$close_all()
 
-  # Return the neuronlist
-  nat::as.neuronlist(nl)
+  # Return neuronlist and errors
+  list(neurons=nat::as.neuronlist(nl),
+       errors=errs)
 }
 
 
