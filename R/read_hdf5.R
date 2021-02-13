@@ -25,11 +25,13 @@
 #'   - ``FALSE`` ignores any annotations
 #'   - e.g. ``"connectors"`` reads only "connectors"
 #'   Non-existing annotations are silently ignored!
-#' @param strict If TRUE, will read only the attributes/columns which are
+#' @param strict If `TRUE`, will read only the attributes/columns which are
 #'   absolutely required to construct the respective neuron representation. This
 #'   is useful if you either want to keep memory usage low or if any additional
 #'   attributes are causing troubles. If FALSE (default), will read every
 #'   attribute and dataframe column and attach it to the neuron.
+#' @param use.serialized If `TRUE`, unserialize neurons from their serialized
+#'   byte representation if present.
 #' @param reader Which reader to use to parse the given format. By default
 #'   ("auto") will try to pick the correct parser for you depending on the
 #'   ``format_spec`` attribute in the Hdf5 file. You can also directly provide a
@@ -57,6 +59,7 @@ read.neurons.hdf5 <- function(f,
                               subset=NULL,
                               annotations=TRUE,
                               strict=FALSE,
+                              use.serialized=T,
                               reader='auto',
                               on.error=c('stop', 'warn', 'ignore'),
                               ret.errors=FALSE,
@@ -94,6 +97,7 @@ read.neurons.hdf5 <- function(f,
          subset=subset,
          annotations=annotations,
          strict=strict,
+         use.serialized=use.serialized,
          on.error=on.error,
          ret.errors=ret.errors,
          .parallel=.parallel,
@@ -109,6 +113,7 @@ read.neurons.hdf5.v1 <- function(f,
                                  subset=NULL,
                                  annotations=TRUE,
                                  strict=FALSE,
+                                 use.serialized=TRUE,
                                  reader='auto',
                                  on.error=c('stop', 'warn', 'ignore'),
                                  ret.errors=FALSE,
@@ -190,6 +195,7 @@ read.neurons.hdf5.v1 <- function(f,
                               annotations=annotations,
                               read=read,
                               strict=strict,
+                              use.serialized=use.serialized,
                               on.error=on.error,
                               mc.cores=ncores,
                               mc.silent=F,
@@ -302,6 +308,7 @@ read.neurons.hdf5.v1.seq <- function(f,
                                      subset=NULL,
                                      annotations=TRUE,
                                      strict=FALSE,
+                                     use.serialized=TRUE,
                                      reader='auto',
                                      on.error=c('raise', 'warn', 'ignore'),
                                     .parallel='auto', ...) {
@@ -363,7 +370,9 @@ read.neurons.hdf5.v1.seq <- function(f,
           if (on.error != 'stop'){
             # Try parsing this neuron and keep track of errors if fails
             neuron = NULL
-            e = tryCatch({neuron = f(grp, strict=strict)
+            e = tryCatch({neuron = f(grp,
+                                     strict=strict,
+                                     use.serialized=use.serialized)
                           NULL},
                          error = function(cond) conditionMessage(cond))
             if (!is.null(e)){
@@ -386,7 +395,7 @@ read.neurons.hdf5.v1.seq <- function(f,
             }
             # Attach it to list of neurons
             nl = c(nl, list(neuron))
-            # We are in the priority loop - if we found what we wanted break out
+            # We are in the priority loop - break out if we found what we wanted
           }
           break
         }
@@ -405,12 +414,19 @@ read.neurons.hdf5.v1.seq <- function(f,
 
 # hidden
 # Read skeleton from given Hdf5 group into a nat neuron
-read.neuron.hdf5.v1.skeleton <- function(grp, strict=F){
+read.neuron.hdf5.v1.skeleton <- function(grp, strict=F, use.serialized=T){
   # Get skeleton group from the base neuron group
   skgrp = hdf5r::openGroup(grp, "skeleton")
 
   # Get skeleton-level attributes
   skattrs = hdf5r::h5attributes(skgrp)
+
+  if (use.serialized){
+    if (!is.null(skattrs$serialized_R_nat)){
+      return(unserialize(charToRaw(skattrs[['serialized_R_nat']])))
+    }
+  }
+
   # Drop un-expected attributes if strict
   if (strict) {
     skattrs = skattrs[names(skattrs) %in% c("neuron_name", 'units_nm')]
@@ -487,12 +503,19 @@ read.neuron.hdf5.v1.skeleton <- function(grp, strict=F){
 
 # hidden
 # Read mesh from given Hdf5 group into a nat mesh3d
-read.neuron.hdf5.v1.mesh <- function(grp, strict=F){
+read.neuron.hdf5.v1.mesh <- function(grp, strict=F, use.serialized=T){
   # Get mesh group from the base neuron grp
   megrp = hdf5r::openGroup(grp, "mesh")
 
   # Get mesh-level attributes
   meattrs = hdf5r::h5attributes(megrp)
+
+  if (use.serialized){
+    if (!is.null(meattrs$serialized_R_nat)){
+      return(unserialize(charToRaw(meattrs[['serialized_R_nat']])))
+    }
+  }
+
   # Drop un-expected attributes if strict
   if (strict) {
     meattrs = meattrs[names(meattrs) %in% c("neuron_name", 'units_nm', 'soma')]
@@ -547,12 +570,19 @@ read.neuron.hdf5.v1.mesh <- function(grp, strict=F){
 
 # hidden
 # Read dotprops from given Hdf5 group into a nat dotprops
-read.neuron.hdf5.v1.dotprops <- function(grp, strict=F){
+read.neuron.hdf5.v1.dotprops <- function(grp, strict=F, use.serialized=T){
   # Get dotprops group from the base neuron grp
   dpgrp = hdf5r::openGroup(grp, "dotprops")
 
   # Get dotprops-level attributes
   dpattrs = hdf5r::h5attributes(dpgrp)
+
+  if (use.serialized){
+    if (!is.null(dpattrs$serialized_R_nat)){
+      return(unserialize(charToRaw(dpattrs[['serialized_R_nat']])))
+    }
+  }
+
   # Drop un-expected attributes if strict
   if (strict) {
     dpattrs = dpattrs[names(dpattrs) %in% c("neuron_name", 'units_nm', 'soma', 'k')]

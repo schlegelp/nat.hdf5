@@ -23,7 +23,10 @@
 #'   format specs in the same HDF5 file. So if you want to write to a file which
 #'   already contains data in a given format, you have to use that format.
 #' @param append If `file` exists, this determines whether we append data to
-#'   that file (default) or if we overwrite the entire file.#'
+#'   that file (default) or if we overwrite the entire file.
+#' @param incl.serialized If `TRUE` will store also a serialized version
+#'   of the neuron(s). This will speed up reading at the cost of increasing
+#'   file size.
 #' @param overwrite.neurons Determines what happens if the representation
 #'   (i.e. skeleton, dotprops or mesh) for a given neuron already exists in
 #'   the file. Set to `TRUE` to silently overwrite existing data. Set to `FALSE`
@@ -44,6 +47,7 @@ write.neurons.hdf5 <- function(x,
                                format=c('latest', 'v1'),
                                append=TRUE,
                                force.id=FALSE,
+                               incl.serialized=FALSE,
                                overwrite.neurons=FALSE) {
   format = match.arg(format)
 
@@ -56,6 +60,7 @@ write.neurons.hdf5 <- function(x,
          annotations=annotations,
          append=append,
          overwrite.neurons=overwrite.neurons,
+         incl.serialized=incl.serialized,
          force.id=force.id)
 }
 
@@ -68,6 +73,7 @@ write.neurons.hdf5.v1 <- function(x,
                                   annotations=NULL,
                                   append=TRUE,
                                   overwrite.neurons=FALSE,
+                                  incl.serialized=FALSE,
                                   force.id=force.id) {
   # Force `n` to a neuron list we can iterate over
   if (!nat::is.neuronlist(x)){
@@ -94,19 +100,18 @@ write.neurons.hdf5.v1 <- function(x,
   # Note: in the future, we should probably check for duplicate IDs just to
   # play it safe
 
-  # If file exists, we need to check if existing data has compatible format
-  if (file.exists(file)){
-    info = inspect.hdf5(file, inspect.neurons=F, inspect.annotations=F)
-    if ('format_spec' %in% info){
-      fs = info[['format_spec']]
-      if (fs != 'navis_hdf5_v1'){
-        stop('file ', file, ' appears to contain data written in a format ',
-             'incompatible to the version 1 schema: ', fs)
+  if (append){
+    # If file exists, we need to check if existing data has compatible format
+    if (file.exists(file)){
+      info = inspect.hdf5(file, inspect.neurons=F, inspect.annotations=F)
+      if ('format_spec' %in% info){
+        fs = info[['format_spec']]
+        if (fs != 'navis_hdf5_v1'){
+          stop('file ', file, ' appears to contain data written in a format ',
+               'incompatible to the version 1 schema: ', fs)
+        }
       }
     }
-  }
-
-  if (append){
     # Creates new file if not exists, else open in append mode
     file.h5 = hdf5r::H5File$new(file, mode="a")
   } else {
@@ -146,12 +151,15 @@ write.neurons.hdf5.v1 <- function(x,
 
     if (inherits(n, 'neuron')){
       write.neuron.hdf5.v1.skeleton(n, grp,
-                                     overwrite.neurons=overwrite.neurons)
+                                    incl.serialized=incl.serialized,
+                                    overwrite.neurons=overwrite.neurons)
     } else if (inherits(n, 'dotprops')){
       write.neuron.hdf5.v1.dotprops(n, grp,
-                                     overwrite.neurons=overwrite.neurons)
+                                    incl.serialized=incl.serialized,
+                                    overwrite.neurons=overwrite.neurons)
     } else if (inherits(n, 'mesh3d')){
       write.neuron.hdf5.v1.mesh(n, grp,
+                                incl.serialized=incl.serialized,
                                 overwrite.neurons=overwrite.neurons)
     } else {
       stop("Don't know how to write object of class ", class(n))
@@ -164,7 +172,9 @@ write.neurons.hdf5.v1 <- function(x,
 
 # hidden
 # Writes a single skeleton to given neuron group
-write.neuron.hdf5.v1.skeleton <- function(n, grp, overwrite.neurons=F){
+write.neuron.hdf5.v1.skeleton <- function(n, grp,
+                                          incl.serialized=F,
+                                          overwrite.neurons=F){
   # Check if there already is a skeleton
   if (grp$exists("skeleton")){
     if (!overwrite.neurons){
@@ -193,12 +203,22 @@ write.neuron.hdf5.v1.skeleton <- function(n, grp, overwrite.neurons=F){
   skgrp[["z"]] <- n$d$Z
   skgrp[["radius"]] <- n$d$W / 2  # from diameter back to radius
 
+  if (incl.serialized){
+    # Serialize into ASCII encoded characters
+    chars = rawToChar(serialize(n, connection = NULL, ascii=T))
+
+    # Write string as attribute to grp
+    h5attr(skgrp, 'serialized_R_nat') <- chars
+  }
+
 }
 
 
 # hidden
 # Writes a single dotprops to given neuron group
-write.neuron.hdf5.v1.dotprops <- function(n, grp, overwrite.neurons=F){
+write.neuron.hdf5.v1.dotprops <- function(n, grp,
+                                          incl.serialized=F,
+                                          overwrite.neurons=F){
   # Check if there already is a dotprops
   if (grp$exists("dotprops")){
     if (!overwrite.neurons){
@@ -237,12 +257,22 @@ write.neuron.hdf5.v1.dotprops <- function(n, grp, overwrite.neurons=F){
   dpgrp[["vect"]] <- t(n$vect)
   dpgrp[["alpha"]] <- n$alpha
 
+  if (incl.serialized){
+    # Serialize into ASCII encoded characters
+    chars = rawToChar(serialize(n, connection = NULL, ascii=T))
+
+    # Write string as attribute to grp
+    h5attr(dpgrp, 'serialized_R_nat') <- chars
+  }
+
 }
 
 
 # hidden
 # Writes a single mesh to given neuron group
-write.neuron.hdf5.v1.mesh <- function(n, grp, overwrite.neurons=F){
+write.neuron.hdf5.v1.mesh <- function(n, grp,
+                                      incl.serialized=F,
+                                      overwrite.neurons=F){
   # Check if there already is a mesh
   if (grp$exists("mesh")){
     if (!overwrite.neurons){
@@ -273,6 +303,14 @@ write.neuron.hdf5.v1.mesh <- function(n, grp, overwrite.neurons=F){
 
   if (!is.null(n$skeleton_map)){
     megrp[["skeleton_map"]] <- n$skeleton_map
+  }
+
+  if (incl.serialized){
+    # Serialize into ASCII encoded characters
+    chars = rawToChar(serialize(n, connection = NULL, ascii=T))
+
+    # Write string as attribute to grp
+    h5attr(megrp, 'serialized_R_nat') <- chars
   }
 
 }
