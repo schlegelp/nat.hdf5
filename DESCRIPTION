@@ -28,7 +28,7 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr    
-License: G-PL3
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.1
