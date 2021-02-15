@@ -49,7 +49,7 @@
 #'  numbers of neurons. Integer will be interpreted as the number of cores
 #'  (otherwise defaults to ``parallel::detectCores()/2``).
 #' @param ... additional arguments passed to version-specific readers
-#' @seealso \code{\link{write.neuron.hdf5}}, \code{\link{inspect.hdf5}}
+#' @seealso \code{\link{write.neurons.hdf5}}, \code{\link{inspect.hdf5}}
 #'
 #' @examples
 #' \dontrun{
