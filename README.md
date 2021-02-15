@@ -82,7 +82,7 @@ https://github.com/mannau/h5-libwin - thus no manual installation is required.
 > # Inspect contents
 > inspect.hdf5('~/Downloads/test.h5')
 $format_spec
-[1] "hnf1_v1"
+[1] "hnf_v1"
 
 $format_url
 [1] "https://github.com/schlegelp/nat.hdf5"
