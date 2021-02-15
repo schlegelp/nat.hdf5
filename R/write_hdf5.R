@@ -58,6 +58,10 @@ write.neurons.hdf5 <- function(x,
                   latest=write.neurons.hdf5.v1,
                   v1=write.neurons.hdf5.v1)
 
+  if (is.null(write)){
+    stop("No writer found for format: ", format)
+  }
+
   writer(x=x, file=file,
          annotations=annotations,
          append=append,
