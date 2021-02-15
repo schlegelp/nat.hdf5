@@ -84,16 +84,19 @@ write.neurons.hdf5.v1 <- function(x,
     stop("`raw` and `serialized` must not both be FALSE!")
   }
 
-  # Force `n` to a neuron list we can iterate over
-  if (!nat::is.neuronlist(x)){
-    x = nat::neuronlist()
+  # Force `x` to a neuron list we can iterate over
+  if (!inherits(x, 'neuronlist')){
+    x = nat::as.neuronlist(x)
   }
 
   # Before we get started, make sure that each neuron has an ID:
+  if (is.null(names(x)[[i]])){
+    names(x) <- NA
+  }
   # For each neuron ...
   for (i in 1:length(x)){
     # ..if there is no name for this neuron in the neuronlist...
-    if (is.null(names(x)[[i]])){
+    if (is.na(names(x)[[i]])){
       # ... use $skid or ...
       if (!is.null(x[[i]]$skid)){
         names(x)[[i]] <- x[[i]]$skid
@@ -114,7 +117,7 @@ write.neurons.hdf5.v1 <- function(x,
 
   # Double check that there aren't any duplicate IDs
   if (any(duplicated(names(x)))){
-    stop("Duplicate ID(s) found: ", names(x)[duplicated(names)])
+    stop("Duplicate ID(s) found: ", names(x)[duplicated(names(x))])
   }
 
   if (append){
