@@ -123,7 +123,7 @@ write.neurons.hdf5.v1 <- function(x,
       info = inspect.hdf5(file, inspect.neurons=F, inspect.annotations=F)
       if ('format_spec' %in% info){
         fs = info[['format_spec']]
-        if (fs != 'navis_hdf5_v1'){
+        if (fs != 'hnf_v1'){
           stop('file ', file, ' appears to contain data written in a format ',
                'incompatible to the version 1 schema: ', fs)
         }
@@ -137,8 +137,8 @@ write.neurons.hdf5.v1 <- function(x,
   }
 
   # Write root info to file
-  hdf5r::h5attr(file.h5, "format_spec") <- "navis_hdf5_v1"
-  hdf5r::h5attr(file.h5, "format_url") <- "https://github.com/schlegelp/navis"
+  hdf5r::h5attr(file.h5, "format_spec") <- "hnf_v1"
+  hdf5r::h5attr(file.h5, "format_url") <- "https://github.com/schlegelp/nat.hdf5"
 
   # Go over each neuron and save it
   pb <- progress::progress_bar$new(total = length(x))

@@ -88,9 +88,13 @@ read.neurons.hdf5 <- function(f,
   # The reader to be used depends on the format specifier in the file
   if (reader=='auto') {
     reader = switch(info$format_spec,
-                    navis_hdf5_v1=read.neurons.hdf5.v1)
+                    hnf_v1=read.neurons.hdf5.v1)
   } else if (!is.function(reader)) {
     stop('`reader` must be "auto" or a function')
+  }
+
+  if (is.null(reader)){
+    stop("No reader found for format ", info$format_spec)
   }
 
   reader(f,
