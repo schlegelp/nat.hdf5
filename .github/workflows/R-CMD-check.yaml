@@ -18,6 +18,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       RGL_USE_NULL: true
+      RGL_USE_NULL: TRUE
     steps:
       - uses: actions/checkout@v2
       - name: Install Hdf5 format
