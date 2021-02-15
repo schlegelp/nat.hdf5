@@ -94,7 +94,7 @@ write.neurons.hdf5.v1 <- function(x,
   }
 
   # Before we get started, make sure that each neuron has an ID:
-  if (is.null(names(x)[[i]])){
+  if (is.null(names(x))){
     names(x) <- NA
   }
   # For each neuron ...
