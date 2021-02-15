@@ -85,7 +85,7 @@ $format_spec
 [1] "hnf1_v1"
 
 $format_url
-[1] "https://github.com/schlegelp/navis"
+[1] "https://github.com/schlegelp/nat.hdf5"
 
 $neurons
  [1] "ChaMARCM-F000586_seg002" "FruMARCM-F000270_seg001" "FruMARCM-F001115_seg002" "FruMARCM-M001051_seg002" "FruMARCM-M001205_seg002"
