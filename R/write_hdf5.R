@@ -83,22 +83,30 @@ write.neurons.hdf5.v1 <- function(x,
   # Before we get started, make sure that each neuron has an ID:
   # For each neuron ...
   for (i in 1:length(x)){
-    # ... check if there is a id or a skeleton ID
-    if (is.null(x[[i]]$id) & (is.null(x[[i]]$skid))){
-      # If no ID...
-      if (force.id){
-        # ... generate one or ....
-        x[[i]]$id = uuid::UUIDgenerate()
+    # ..if there is no name for this neuron in the neuronlist...
+    if (is.null(names(x)[[i]])){
+      # ... use $skid or ...
+      if (!is.null(x[[i]]$skid)){
+        names(x)[[i]] <- x[[i]]$skid
+      # ... use $id ...
+      } else if (!is.null(x[[i]]$id)){
+        names(x)[[i]] <- x[[i]]$id
+      # ... assign an ID ....
+      } else if (force.id){
+        names(x)[[i]] <- uuid::UUIDgenerate()
+      # ... or throw a tantrum.
       } else {
-        # ... stop with an error.
-        stop("At least one neuron without `id` or `skid`. You have to either ",
-             "assign ID(s) manually or set `force.id=T`")
+        stop("At least one neuron without a unique ID (neither `names(x)`, ",
+             "`$skid` nor `$id`) You have to either assign ID(s) manually or ",
+             "set `force.id=T`")
       }
     }
   }
 
-  # Note: in the future, we should probably check for duplicate IDs just to
-  # play it safe
+  # Double check that there aren't any duplicate IDs
+  if (any(duplicated(names(x)))){
+    stop("Duplicate ID(s) found: ", names(x)[duplicated(names)])
+  }
 
   if (append){
     # If file exists, we need to check if existing data has compatible format
@@ -125,15 +133,12 @@ write.neurons.hdf5.v1 <- function(x,
 
   # Go over each neuron and save it
   pb <- progress::progress_bar$new(total = length(x))
-  for (n in x){
-    if (!is.null(n$skid)){
-      id = n$skid
-    } else {
-      id = n$id
-    }
+  for (i in 1:length(x)){
+    # Neuron to be saved
+    n = x[[i]]
 
     # IDs must be characters
-    id = as.character(id)
+    id = as.character(names(x)[[i]])
 
     # Create group if it does not exist
     if (!file.h5$exists(id)){
