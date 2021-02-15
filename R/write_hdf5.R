@@ -228,7 +228,7 @@ write.neuron.hdf5.v1.skeleton <- function(n, grp,
     chars = rawToChar(serialize(n, connection = NULL, ascii=T))
 
     # Write string as attribute to grp
-    h5attr(skgrp, '.serialized_nat') <- chars
+    hdf5r::h5attr(skgrp, '.serialized_nat') <- chars
   }
 
 }
@@ -283,7 +283,7 @@ write.neuron.hdf5.v1.dotprops <- function(n, grp, serialized=T, raw=F,
     chars = rawToChar(serialize(n, connection = NULL, ascii=T))
 
     # Write string as attribute to grp
-    h5attr(dpgrp, '.serialized_nat') <- chars
+    hdf5r::h5attr(dpgrp, '.serialized_nat') <- chars
   }
 
 }
@@ -331,7 +331,7 @@ write.neuron.hdf5.v1.mesh <- function(n, grp, serialized=T, raw=F,
     chars = rawToChar(serialize(n, connection = NULL, ascii=T))
 
     # Write string as attribute to grp
-    h5attr(megrp, '.serialized_nat') <- chars
+    hdf5r::h5attr(megrp, '.serialized_nat') <- chars
   }
 
 }
