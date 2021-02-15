@@ -1,4 +1,4 @@
-test_that("test nat.hdf5::read.neurons.hdf5", {
+test_that("test reading Python-generated file ", {
   # Test file contains 5 neurons that each have dotprops, mesh and a skeleton.
   # Test file is encoded was written in Python.
   fp = 'test_file.h5'
