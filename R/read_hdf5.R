@@ -224,6 +224,8 @@ read.neurons.hdf5.v1 <- function(f,
   # for a given neuron) -> we need to unlist
   nl = nat::as.neuronlist(nl, recursive=F)
 
+  names(nl) <- subset
+
   if (!ret.errors){
     return(nl)
   } else {
