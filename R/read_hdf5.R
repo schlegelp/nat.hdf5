@@ -321,23 +321,6 @@ read.neurons.hdf5.v1.seq <- function(f,
                                      on.error=c('raise', 'warn', 'ignore'),
                                     .parallel='auto', ...) {
 
-  # Get info for file
-  info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
-
-  # If no subset specified, load all neurons
-  if (is.null(subset)) {
-    subset = info$neurons
-  } else {
-    # Force to str
-    subset = as.character(subset)
-    # Intersect with the neurons that are actually available
-    subset = intersect(subset, info$neurons)
-    # Complain if none left
-    if (length(subset) == 0) {
-      stop("None of the requested neurons appear to be in the Hdf5 file")
-    }
-  }
-
   # Open the file
   file.h5 <- hdf5r::H5File$new(f, mode = "r")
 
