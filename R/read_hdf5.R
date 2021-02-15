@@ -30,8 +30,9 @@
 #'   is useful if you either want to keep memory usage low or if any additional
 #'   attributes are causing troubles. If FALSE (default), will read every
 #'   attribute and dataframe column and attach it to the neuron.
-#' @param use.serialized If `TRUE`, unserialize neurons from their serialized
-#'   byte representation if present.
+#' @param prefer.raw If `TRUE`, we will create the neurons from scratch if the
+#'  raw data is available. If `FALSE` or only the serialized byte stream is
+#'  available, neurons are simply unserialized (similar to `load`).
 #' @param reader Which reader to use to parse the given format. By default
 #'   ("auto") will try to pick the correct parser for you depending on the
 #'   ``format_spec`` attribute in the Hdf5 file. You can also directly provide a
@@ -59,7 +60,7 @@ read.neurons.hdf5 <- function(f,
                               subset=NULL,
                               annotations=TRUE,
                               strict=FALSE,
-                              use.serialized=T,
+                              prefer.raw=FALSE,
                               reader='auto',
                               on.error=c('stop', 'warn', 'ignore'),
                               ret.errors=FALSE,
@@ -97,7 +98,7 @@ read.neurons.hdf5 <- function(f,
          subset=subset,
          annotations=annotations,
          strict=strict,
-         use.serialized=use.serialized,
+         prefer.raw=prefer.raw,
          on.error=on.error,
          ret.errors=ret.errors,
          .parallel=.parallel,
@@ -113,7 +114,7 @@ read.neurons.hdf5.v1 <- function(f,
                                  subset=NULL,
                                  annotations=TRUE,
                                  strict=FALSE,
-                                 use.serialized=TRUE,
+                                 prefer.raw=FALSE,
                                  reader='auto',
                                  on.error=c('stop', 'warn', 'ignore'),
                                  ret.errors=FALSE,
@@ -195,7 +196,7 @@ read.neurons.hdf5.v1 <- function(f,
                               annotations=annotations,
                               read=read,
                               strict=strict,
-                              use.serialized=use.serialized,
+                              prefer.raw=prefer.raw,
                               on.error=on.error,
                               mc.cores=ncores,
                               mc.silent=F,
@@ -310,7 +311,7 @@ read.neurons.hdf5.v1.seq <- function(f,
                                      subset=NULL,
                                      annotations=TRUE,
                                      strict=FALSE,
-                                     use.serialized=TRUE,
+                                     prefer.raw=FALSE,
                                      reader='auto',
                                      on.error=c('raise', 'warn', 'ignore'),
                                     .parallel='auto', ...) {
@@ -374,7 +375,7 @@ read.neurons.hdf5.v1.seq <- function(f,
             neuron = NULL
             e = tryCatch({neuron = f(grp,
                                      strict=strict,
-                                     use.serialized=use.serialized)
+                                     prefer.raw=prefer.raw)
                           NULL},
                          error = function(cond) conditionMessage(cond))
             if (!is.null(e)){
@@ -416,16 +417,17 @@ read.neurons.hdf5.v1.seq <- function(f,
 
 # hidden
 # Read skeleton from given Hdf5 group into a nat neuron
-read.neuron.hdf5.v1.skeleton <- function(grp, strict=F, use.serialized=T){
+read.neuron.hdf5.v1.skeleton <- function(grp, strict=F, prefer.raw=F){
   # Get skeleton group from the base neuron group
   skgrp = hdf5r::openGroup(grp, "skeleton")
 
   # Get skeleton-level attributes
   skattrs = hdf5r::h5attributes(skgrp)
 
-  if (use.serialized){
-    if (!is.null(skattrs$serialized_R_nat)){
-      return(unserialize(charToRaw(skattrs[['serialized_R_nat']])))
+  # Read the serialized representation if it exists
+  if (!is.null(skattrs$.serialized_nat)){
+    if (!prefer.raw | !"node_id" %in% names(skgrp)){
+      return(unserialize(charToRaw(skattrs[['.serialized_nat']])))
     }
   }
 
@@ -505,16 +507,17 @@ read.neuron.hdf5.v1.skeleton <- function(grp, strict=F, use.serialized=T){
 
 # hidden
 # Read mesh from given Hdf5 group into a nat mesh3d
-read.neuron.hdf5.v1.mesh <- function(grp, strict=F, use.serialized=T){
+read.neuron.hdf5.v1.mesh <- function(grp, strict=F, prefer.raw=F){
   # Get mesh group from the base neuron grp
   megrp = hdf5r::openGroup(grp, "mesh")
 
   # Get mesh-level attributes
   meattrs = hdf5r::h5attributes(megrp)
 
-  if (use.serialized){
-    if (!is.null(meattrs$serialized_R_nat)){
-      return(unserialize(charToRaw(meattrs[['serialized_R_nat']])))
+  # Read the serialized representation if it exists
+  if (!is.null(meattrs$.serialized_nat)){
+    if (!prefer.raw | !"vertices" %in% names(megrp)){
+      return(unserialize(charToRaw(meattrs[['.serialized_nat']])))
     }
   }
 
@@ -572,16 +575,17 @@ read.neuron.hdf5.v1.mesh <- function(grp, strict=F, use.serialized=T){
 
 # hidden
 # Read dotprops from given Hdf5 group into a nat dotprops
-read.neuron.hdf5.v1.dotprops <- function(grp, strict=F, use.serialized=T){
+read.neuron.hdf5.v1.dotprops <- function(grp, strict=F, prefer.raw=F){
   # Get dotprops group from the base neuron grp
   dpgrp = hdf5r::openGroup(grp, "dotprops")
 
   # Get dotprops-level attributes
   dpattrs = hdf5r::h5attributes(dpgrp)
 
-  if (use.serialized){
-    if (!is.null(dpattrs$serialized_R_nat)){
-      return(unserialize(charToRaw(dpattrs[['serialized_R_nat']])))
+  # Read the serialized representation if it exists
+  if (!is.null(dpattrs$.serialized_nat)){
+    if (!prefer.raw | !"points" %in% names(dpgrp)){
+      return(unserialize(charToRaw(dpattrs[['.serialized_nat']])))
     }
   }
 
