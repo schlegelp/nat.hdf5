@@ -91,3 +91,80 @@ inspect.hdf5 <- function(f,
   file.h5$close_all()
   info
 }
+
+
+#' Remove neurons from a Hdf5 file
+#'
+#' @details This function will remove given neurons from an Hdf5 file.
+#'   Note that due to the way Hdf5 works, deleting neurons will not reduce the
+#'   file size. It does make makes that space available for use for future
+#'   data though.
+#'
+#' @export
+#' @param f Path to Hdf5 file.
+#' @param which An id or list thereof flagging neurons for removal. IDs that
+#'   don't exist in the file are silently ignored.
+#' @param skeletons Boolean determining whether to remove skeleton
+#'   representations for given neurons.
+#' @param dotprops Boolean determining whether to remove dotprops
+#'   representations for given neurons.
+#' @param meshes Boolean determining whether to remove mesh representations for
+#'   given neurons.
+#' @param annotations Whether to remove annotations for given neuron.
+#' @seealso \code{\link{write.neurons.hdf5}}, \code{\link{read.neurons.hdf5}},
+#'   \code{\link{inspect.hdf5}}
+drop.neurons.hdf5 <- function(f,
+                              which,
+                              skeletons=TRUE,
+                              dotprops=TRUE,
+                              meshes=TRUE,
+                              annotations=TRUE) {
+  # Get info for file
+  info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
+
+  # Force to str
+  which = as.character(which)
+  # Intersect with the neurons that are actually available
+  which = intersect(which, info$neurons)
+  # Complain if none left
+  if (length(which) == 0) {
+    stop("None of the neurons flagged for deleting appear to be in the Hdf5 file")
+  }
+
+  # Open file for read/write
+  file.h5 <- hdf5r::H5File$new(f, mode = "r+")
+
+  # Go over each neuron
+  for (n in which){
+    # Get this neuron's group
+    grp = file.h5[[n]]
+
+    # Get the datasets in this group
+    data = names(grp)
+    # Unlink datasets
+    if (skeletons & "skeleton" %in% data){
+      grp$link_delete("skeleton")
+      data = setdiff(data, "skeleton")
+    }
+    if (dotprops & "dotprops" %in% data){
+      grp$link_delete("dotprops")
+      data = setdiff(data, "dotprops")
+    }
+    if (meshes & "mesh" %in% data){
+      grp$link_delete("mesh")
+      data = setdiff(data, "mesh")
+    }
+    if (annotations & "annotations" %in% data){
+      grp$link_delete("annotations")
+      data = setdiff(data, "annotations")
+    }
+
+    # Close the group
+    grp$close()
+
+    # If no more data, also unlink the group itself
+    if (length(data) == 0){
+      file.h5$link_delete(n)
+    }
+  }
+}

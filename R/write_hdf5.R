@@ -35,7 +35,8 @@
 #' @param force.id As laid out above, we require a unique (!) ID for each
 #'   neuron. If `force.id=T` any neuron without an ID will be assigned a newly
 #'   generated UUID.
-#' @seealso \code{\link{read.neurons.hdf5}}, \code{\link{inspect.hdf5}}
+#' @seealso \code{\link{read.neurons.hdf5}}, \code{\link{inspect.hdf5}},
+#'   \code{\link{drop.neurons.hdf5}}
 #'
 #' @examples
 #' \dontrun{

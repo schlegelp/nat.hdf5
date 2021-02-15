@@ -4,7 +4,7 @@
 
 # nat.hdf5
 A library to reading/writing `nat` neuron data from/to Hdf5 files. The schema
-for the "Hierarchical Neuron Format" (HNF) is under active development and can  
+for the "Hierarchical Neuron Format" (HNF) is under active development and can
 be found here [here](https://github.com/flyconnectome/hnf).
 
 Ups:
@@ -15,7 +15,7 @@ Ups:
   file
 
 Downs:
-- slower to read/write than R's `save`/`load` - in particular if you read from  
+- slower to read/write than R's `save`/`load` - in particular if you read from
   raw data (see benchmark below)
 - larger files compared to `save`/`load`
 
@@ -25,10 +25,10 @@ Downs:
 - [x] parallel reading
 - [x] function to write neurons from Hdf5 file
 - [x] optionally write neurons as serialized byte streams for faster reading
+- [x] function to remove select neurons from Hdf5 file: `drop.neurons.hdf5`
 
 # TODOs
 - [ ] read arbitrary attributes + `strict` parameter for `read.neurons.hdf5`
-- [ ] function to remove select neurons from Hdf5 file
 - [ ] more efficient handling of raw data with the same datatype (pool x/y/z coordinates)
 - [ ] rewrite to work with either Hdf5 or a simple zip file
 
