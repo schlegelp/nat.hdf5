@@ -32,6 +32,10 @@
 inspect.hdf5 <- function(f,
                          inspect.neurons=F,
                          inspect.annotations=F, ...) {
+  if(!file.exists(f)){
+    stop("File does not exist: ", f)
+  }
+
   # Open the file
   file.h5 <- hdf5r::H5File$new(f, mode = "r")
 
@@ -119,6 +123,10 @@ drop.neurons.hdf5 <- function(f,
                               dotprops=TRUE,
                               meshes=TRUE,
                               annotations=TRUE) {
+  if(!file.exists(f)){
+    stop("File does not exist: ", f)
+  }
+
   # Get info for file
   info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
 

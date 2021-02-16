@@ -83,6 +83,10 @@ read.neurons.hdf5 <- function(f,
     }
   }
 
+  if(!file.exists(f)){
+    stop("File does not exist: ", f)
+  }
+
   # Get info for file
   info = inspect.hdf5(f, inspect.neurons=F, inspect.annotations=F)
 
