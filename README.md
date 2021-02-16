@@ -109,6 +109,9 @@ $neurons
 > names(ss)
 [1] "ChaMARCM-F000586_seg002" "FruMARCM-F000270_seg001"
 
+> # Remove a couple of neurons from the file 
+> drop.neurons.hdf5('~/Downloads/test.h5', which=info$neurons[1:5])
+
 ```
 
 For details please see the help for `read.neurons.hdf5` and `write.neurons.hdf5`.
